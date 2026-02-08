@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visual Studio Web - Editor Drag & Drop</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <style>
+/* Abas Principais (Estilos Prontos vs Manual) */
+.main-mode-tabs {
+    display: flex;
+    background: #0f172a;
+    padding: 4px;
+    margin-bottom: 15px;
+    border-bottom: 1px solid var(--border);
+}
+
+.mode-tab {
+    flex: 1;
+    padding: 8px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--text-muted);
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.mode-tab.active {
+    background: var(--primary);
+    color: white;
+}
+
+/* Grid de Presets */
+.preset-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 0 4px;
+}
+
+.preset-card {
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    cursor: pointer;
+    transition: transform 0.2s, border-color 0.2s;
+    text-align: center;
+}
+
+.preset-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--primary);
+}
+
+.preset-preview {
+    height: 50px;
+    width: 100%;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: bold;
+}
+
+.preset-name {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #ec4899;
+            --bg-dark: #0f172a;
+            --bg-panel: #1e293b;
+            --bg-card: #334155;
+            --text: #e2e8f0;
+            --text-muted: #94a3b8;
+            --border: #475569;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            height: 100vh;
+            overflow: hidden;
+        }
+        .app {
+            display: grid;
+            grid-template-columns: 260px 1fr 300px;
+            grid-template-rows: 48px 1fr 32px;
+            height: 100vh;
+        }
+        .topbar {
+            grid-column: 1 / -1;
+            background: var(--bg-panel);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 12px;
+            z-index: 100;
+        }
+        .topbar-logo {
+            font-weight: 700;
+            font-size: 14px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-right: 20px;
+        }
+        .topbar-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        .topbar-btn:hover { background: var(--bg-card); color: var(--text); border-color: var(--primary); }
+        .topbar-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .topbar-sep { width: 1px; height: 24px; background: var(--border); }
+        .topbar-spacer { flex: 1; }
+        .left-panel {
+            background: var(--bg-panel);
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+            padding: 12px;
+        }
+        .panel-tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+        .panel-tab {
+            flex: 1;
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 11px;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        .panel-tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .panel-section { margin-bottom: 16px; }
+        .panel-section-title {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            padding: 0 4px;
+        }
+        .component-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .component-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 8px;
+            cursor: grab;
+            text-align: center;
+            font-size: 11px;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        .component-item:hover { border-color: var(--primary); background: rgba(99,102,241,0.15); transform: translateY(-2px); }
+        .component-item:active { cursor: grabbing; transform: scale(0.95); }
+        .component-item i { display: block; font-size: 18px; margin-bottom: 4px; color: var(--primary); }
+        .style-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .style-preset {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px;
+            cursor: pointer;
+            font-size: 10px;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        .style-preset:hover { border-color: var(--primary); }
+        .style-preview { height: 40px; border-radius: 4px; margin-bottom: 4px; }
+        .canvas-wrapper {
+            background: #1a1a2e;
+            overflow: auto;
+            position: relative;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 30px;
+        }
+        .canvas {
+            background: white;
+            width: 1200px;
+            min-height: 800px;
+            position: relative;
+            box-shadow: 0 0 60px rgba(0,0,0,0.5);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .canvas.grid-visible {
+            background-image: linear-gradient(rgba(99,102,241,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.05) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        .canvas-element {
+            position: absolute;
+            cursor: move;
+            min-width: 40px;
+            min-height: 20px;
+            transition: box-shadow 0.2s;
+            user-select: none;
+        }
+        .canvas-element:hover { outline: 2px solid var(--primary); outline-offset: 2px; }
+        .canvas-element.selected { outline: 2px solid var(--primary); outline-offset: 2px; z-index: 100; }
+        .resize-handle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: var(--primary);
+            border: 2px solid white;
+            border-radius: 50%;
+            z-index: 200;
+            display: none;
+        }
+        .canvas-element.selected .resize-handle { display: block; }
+        .resize-handle.nw { top: -5px; left: -5px; cursor: nw-resize; }
+        .resize-handle.ne { top: -5px; right: -5px; cursor: ne-resize; }
+        .resize-handle.sw { bottom: -5px; left: -5px; cursor: sw-resize; }
+        .resize-handle.se { bottom: -5px; right: -5px; cursor: se-resize; }
+        .resize-handle.n { top: -5px; left: 50%; transform: translateX(-50%); cursor: n-resize; }
+        .resize-handle.s { bottom: -5px; left: 50%; transform: translateX(-50%); cursor: s-resize; }
+        .resize-handle.e { right: -5px; top: 50%; transform: translateY(-50%); cursor: e-resize; }
+        .resize-handle.w { left: -5px; top: 50%; transform: translateY(-50%); cursor: w-resize; }
+        .element-toolbar {
+            position: absolute;
+            top: -36px;
+            left: 0;
+            background: var(--primary);
+            border-radius: 6px;
+            padding: 4px;
+            display: none;
+            gap: 2px;
+            z-index: 300;
+            white-space: nowrap;
+        }
+        .canvas-element.selected .element-toolbar { display: flex; }
+        .el-tool-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            width: 26px;
+            height: 26px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+        }
+        .el-tool-btn:hover { background: rgba(255,255,255,0.3); }
+        .right-panel {
+            background: var(--bg-panel);
+            border-left: 1px solid var(--border);
+            overflow-y: auto;
+            padding: 12px;
+        }
+        .prop-section { margin-bottom: 16px; background: var(--bg-card); border-radius: 8px; padding: 12px; }
+        .prop-title {
+            font-size: 11px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 10px;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .prop-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .prop-label { font-size: 11px; color: var(--text-muted); min-width: 55px; }
+        .prop-input {
+            flex: 1; background: var(--bg-dark); border: 1px solid var(--border);
+            color: var(--text); padding: 6px 8px; border-radius: 4px; font-size: 12px;
+        }
+        .prop-input:focus { outline: none; border-color: var(--primary); }
+        .prop-color { width: 32px; height: 32px; border: none; border-radius: 6px; cursor: pointer; background: transparent; }
+        .prop-range { flex: 1; accent-color: var(--primary); }
+        .prop-select {
+            flex: 1; background: var(--bg-dark); border: 1px solid var(--border);
+            color: var(--text); padding: 6px 8px; border-radius: 4px; font-size: 12px;
+        }
+        .quick-colors { display: flex; gap: 4px; flex-wrap: wrap; }
+        .quick-color {
+            width: 24px; height: 24px; border-radius: 4px; cursor: pointer;
+            border: 2px solid transparent; transition: all 0.15s;
+        }
+        .quick-color:hover { transform: scale(1.15); border-color: white; }
+        .bottombar {
+            grid-column: 1 / -1; background: var(--bg-panel); border-top: 1px solid var(--border);
+            display: flex; align-items: center; padding: 0 16px; font-size: 11px; color: var(--text-muted); gap: 20px;
+        }
+        .ai-panel {
+            position: fixed; bottom: 52px; right: 320px; width: 380px;
+            background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5); z-index: 500; display: none;
+            flex-direction: column; max-height: 500px;
+        }
+        .ai-panel.open { display: flex; }
+        .ai-panel-header {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            padding: 12px 16px; border-radius: 12px 12px 0 0;
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 13px; font-weight: 600;
+        }
+        .ai-panel-body { flex: 1; overflow-y: auto; padding: 12px; max-height: 350px; }
+        .ai-msg { margin-bottom: 10px; padding: 10px 12px; border-radius: 10px; font-size: 13px; line-height: 1.5; }
+        .ai-msg.bot { background: var(--bg-card); border-radius: 10px 10px 10px 2px; }
+        .ai-msg.user { background: var(--primary); color: white; border-radius: 10px 10px 2px 10px; margin-left: 30px; }
+        .ai-panel-input { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--border); }
+        .ai-panel-input input {
+            flex: 1; background: var(--bg-dark); border: 1px solid var(--border);
+            color: var(--text); padding: 10px; border-radius: 8px; font-size: 13px;
+        }
+        .ai-panel-input input:focus { outline: none; border-color: var(--primary); }
+        .ai-panel-input button {
+            background: var(--primary); border: none; color: white;
+            padding: 10px 16px; border-radius: 8px; cursor: pointer;
+        }
+        .code-panel {
+            position: fixed; bottom: 52px; left: 280px; right: 320px; height: 300px;
+            background: #1e1e1e; border-top: 1px solid var(--border); z-index: 400;
+            display: none; flex-direction: column;
+        }
+        .code-panel.open { display: flex; }
+        .code-panel-header { display: flex; align-items: center; padding: 8px 16px; background: #2d2d2d; gap: 12px; font-size: 12px; }
+        .code-panel-body { flex: 1; overflow: auto; padding: 16px; }
+        .code-panel-body textarea {
+            width: 100%; height: 100%; background: transparent; border: none;
+            color: #d4d4d4; font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 13px; line-height: 1.6; resize: none;
+        }
+        .code-panel-body textarea:focus { outline: none; }
+        .toast {
+            position: fixed; top: 60px; right: 20px; background: var(--bg-card);
+            border: 1px solid var(--border); color: var(--text); padding: 10px 20px;
+            border-radius: 8px; font-size: 13px; z-index: 9999;
+            transform: translateX(120%); transition: transform 0.3s;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .toast.show { transform: translateX(0); }
+        .toast.success { border-color: var(--success); }
+        .toast.error { border-color: var(--danger); }
+        .layer-item {
+            display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+            background: var(--bg-dark); border-radius: 4px; margin-bottom: 4px;
+            font-size: 11px; cursor: pointer; border: 1px solid transparent;
+        }
+        .layer-item:hover { border-color: var(--border); }
+        .layer-item.active { border-color: var(--primary); background: rgba(99,102,241,0.1); }
+        .layer-icon { width: 20px; text-align: center; color: var(--primary); }
+        .layer-name { flex: 1; }
+        .layer-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 10px; padding: 2px; }
+        .layer-btn:hover { color: var(--text); }
+        .no-selection { text-align: center; padding: 30px 10px; color: var(--text-muted); font-size: 12px; }
+        .no-selection i { font-size: 32px; display: block; margin-bottom: 10px; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div class="toast" id="toast"></div>
+
+    <div class="app">
+        <div class="topbar">
+            <div class="topbar-logo"><i class="fas fa-vector-square"></i> Visual Studio Web</div>
+            <button class="topbar-btn" onclick="undo()" title="Ctrl+Z"><i class="fas fa-undo"></i></button>
+            <button class="topbar-btn" onclick="redo()" title="Ctrl+Y"><i class="fas fa-redo"></i></button>
+            <div class="topbar-sep"></div>
+            <button class="topbar-btn" onclick="toggleGrid()" id="grid-btn"><i class="fas fa-th"></i> Grid</button>
+            <button class="topbar-btn" onclick="toggleSnap()" id="snap-btn"><i class="fas fa-magnet"></i> Snap</button>
+            <div class="topbar-sep"></div>
+            <button class="topbar-btn" onclick="previewSite()"><i class="fas fa-play"></i> Preview</button>
+            <button class="topbar-btn" onclick="exportSite()"><i class="fas fa-download"></i> Exportar</button>
+            <button class="topbar-btn" onclick="saveSite()"><i class="fas fa-save"></i> Salvar</button>
+            <button class="topbar-btn" onclick="loadSite()"><i class="fas fa-folder-open"></i> Abrir</button>
+            <div class="topbar-spacer"></div>
+            <button class="topbar-btn" onclick="toggleCode()" id="code-btn"><i class="fas fa-code"></i> Código</button>
+            <button class="topbar-btn" onclick="toggleAI()" id="ai-btn"><i class="fas fa-robot"></i> IA</button>
+        </div>
+
+        <div class="left-panel">
+            <div class="panel-tabs">
+                <button class="panel-tab active" onclick="showLeftTab('components',this)"><i class="fas fa-puzzle-piece"></i> Elementos</button>
+                <button class="panel-tab" onclick="showLeftTab('styles',this)"><i class="fas fa-palette"></i> Estilos</button>
+                <button class="panel-tab" onclick="showLeftTab('layers',this)"><i class="fas fa-layer-group"></i> Layers</button>
+            </div>
+            <div id="tab-components">
+                <div class="panel-section">
+                    <div class="panel-section-title">Básicos</div>
+                    <div class="component-list">
+                        <div class="component-item" draggable="true" data-type="heading"><i class="fas fa-heading"></i>Título</div>
+                        <div class="component-item" draggable="true" data-type="text"><i class="fas fa-font"></i>Texto</div>
+                        <div class="component-item" draggable="true" data-type="button"><i class="fas fa-hand-pointer"></i>Botão</div>
+                        <div class="component-item" draggable="true" data-type="image"><i class="fas fa-image"></i>Imagem</div>
+                        <div class="component-item" draggable="true" data-type="box"><i class="fas fa-square"></i>Caixa</div>
+                        <div class="component-item" draggable="true" data-type="divider"><i class="fas fa-minus"></i>Divisor</div>
+                    </div>
+                </div>
+                <div class="panel-section">
+                    <div class="panel-section-title">Complexos</div>
+                    <div class="component-list">
+                        <div class="component-item" draggable="true" data-type="card"><i class="fas fa-id-card"></i>Card</div>
+                        <div class="component-item" draggable="true" data-type="navbar"><i class="fas fa-bars"></i>Navbar</div>
+                        <div class="component-item" draggable="true" data-type="hero"><i class="fas fa-star"></i>Hero</div>
+                        <div class="component-item" draggable="true" data-type="form"><i class="fas fa-envelope"></i>Form</div>
+                        <div class="component-item" draggable="true" data-type="footer"><i class="fas fa-shoe-prints"></i>Footer</div>
+                        <div class="component-item" draggable="true" data-type="pricing"><i class="fas fa-tags"></i>Preço</div>
+                        <div class="component-item" draggable="true" data-type="testimonial"><i class="fas fa-quote-right"></i>Review</div>
+                        <div class="component-item" draggable="true" data-type="icon"><i class="fas fa-icons"></i>Ícone</div>
+                    </div>
+                </div>
+            </div>
+            <div id="tab-styles" style="display:none;">
+                <div class="panel-section">
+                    <div class="panel-section-title">Temas Rápidos</div>
+                    <div class="style-grid">
+                        <div class="style-preset" onclick="applyTheme('modern')"><div class="style-preview" style="background:linear-gradient(135deg,#667eea,#764ba2);"></div>Modern</div>
+                        <div class="style-preset" onclick="applyTheme('dark')"><div class="style-preview" style="background:linear-gradient(135deg,#1a1a2e,#16213e);"></div>Dark</div>
+                        <div class="style-preset" onclick="applyTheme('nature')"><div class="style-preview" style="background:linear-gradient(135deg,#065f46,#10b981);"></div>Nature</div>
+                        <div class="style-preset" onclick="applyTheme('sunset')"><div class="style-preview" style="background:linear-gradient(135deg,#f97316,#ec4899);"></div>Sunset</div>
+                        <div class="style-preset" onclick="applyTheme('ocean')"><div class="style-preview" style="background:linear-gradient(135deg,#0ea5e9,#06b6d4);"></div>Ocean</div>
+                        <div class="style-preset" onclick="applyTheme('minimal')"><div class="style-preview" style="background:#fff;border:1px solid #e0e0e0;"></div>Minimal</div>
+                    </div>
+                </div>
+                <div class="panel-section">
+                    <div class="panel-section-title">Canvas</div>
+                    <div class="prop-row">
+                        <span class="prop-label">Fundo</span>
+                        <input type="color" class="prop-color" value="#ffffff" oninput="document.getElementById('canvas').style.background=this.value">
+                    </div>
+                    <div class="prop-row">
+                        <span class="prop-label">Largura</span>
+                        <select class="prop-select" onchange="setCanvasWidth(this.value)">
+                            <option value="1200">Desktop (1200px)</option>
+                            <option value="768">Tablet (768px)</option>
+                            <option value="375">Mobile (375px)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div id="tab-layers" style="display:none;">
+                <div class="panel-section">
+                    <div class="panel-section-title">Camadas</div>
+                    <div id="layers-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="canvas-wrapper" id="canvas-wrapper">
+            <div class="canvas grid-visible" id="canvas"></div>
+        </div>
+
+        <div class="right-panel" id="right-panel">
+    <div class="no-selection" id="no-selection">
+        <i class="fas fa-mouse-pointer"></i>
+        Selecione um elemento para editar
+    </div>
+
+    <div id="props-panel" style="display:none;">
+        
+        <!-- SELETOR DE MODO -->
+        <div class="main-mode-tabs">
+            <div class="mode-tab active" onclick="switchMainMode('presets', this)">
+                <i class="fas fa-magic"></i> Prontos
+            </div>
+            <div class="mode-tab" onclick="switchMainMode('manual', this)">
+                <i class="fas fa-sliders-h"></i> Manual
+            </div>
+        </div>
+
+        <!-- MODO 1: ESTILOS PRONTOS (PRESETS) -->
+        <div id="mode-presets">
+            <div class="prop-section">
+                <div class="prop-title">Visuais Populares</div>
+                <div class="preset-grid">
+                    <!-- Glassmorphism -->
+                    <div class="preset-card" onclick="applyPreset('glass')">
+                        <div class="preset-preview" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); backdrop-filter: blur(4px);">Glass</div>
+                        <div class="preset-name">Glassmorphism</div>
+                    </div>
+                    
+                    <!-- Neumorphism -->
+                    <div class="preset-card" onclick="applyPreset('neumorphism')">
+                        <div class="preset-preview" style="background: #e0e5ec; color:#333; box-shadow: 5px 5px 10px #b8b9be, -5px -5px 10px #ffffff;">Soft</div>
+                        <div class="preset-name">Neumorphism</div>
+                    </div>
+
+                    <!-- Cyberpunk -->
+                    <div class="preset-card" onclick="applyPreset('cyber')">
+                        <div class="preset-preview" style="background: #000; border: 1px solid #0ff; color: #0ff; box-shadow: 0 0 5px #0ff;">Neon</div>
+                        <div class="preset-name">Cyberpunk</div>
+                    </div>
+
+                    <!-- Gradient -->
+                    <div class="preset-card" onclick="applyPreset('gradient')">
+                        <div class="preset-preview" style="background: linear-gradient(45deg, #6366f1, #ec4899); color: white;">Grad</div>
+                        <div class="preset-name">Gradiente</div>
+                    </div>
+
+                    <!-- 3D Pop -->
+                    <div class="preset-card" onclick="applyPreset('pop3d')">
+                        <div class="preset-preview" style="background: #fff; color:#333; border: 2px solid #000; box-shadow: 4px 4px 0 #000;">Pop</div>
+                        <div class="preset-name">3D Pop</div>
+                    </div>
+
+                    <!-- Minimal -->
+                    <div class="preset-card" onclick="applyPreset('minimal')">
+                        <div class="preset-preview" style="background: #fff; border: 1px solid #e2e8f0; color:#333;">Clean</div>
+                        <div class="preset-name">Minimalista</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="prop-section">
+                <div class="prop-title">Layouts Prontos</div>
+                <div class="preset-grid">
+                    <div class="preset-card" onclick="applyPreset('centerFlex')">
+                        <div class="preset-preview" style="border: 1px dashed #666; display:flex; justify-content:center; align-items:center;">●</div>
+                        <div class="preset-name">Centralizar</div>
+                    </div>
+                    <div class="preset-card" onclick="applyPreset('rowFlex')">
+                        <div class="preset-preview" style="border: 1px dashed #666; display:flex; gap:2px; padding:2px;"><div style="flex:1;background:#666"></div><div style="flex:1;background:#666"></div></div>
+                        <div class="preset-name">Linha Flex</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODO 2: EDITOR MANUAL (O Código Anterior) -->
+        <div id="mode-manual" style="display:none;">
+            <!-- Abas internas do modo manual -->
+            <div class="prop-tabs">
+                <div class="prop-tab active" onclick="switchPropTab('layout')">Layout</div>
+                <div class="prop-tab" onclick="switchPropTab('style')">Estilo</div>
+                <div class="prop-tab" onclick="switchPropTab('text')">Texto</div>
+            </div>
+
+            <!-- CONTEÚDO MANUAL: LAYOUT -->
+            <div id="ptab-layout" class="prop-content">
+                <div class="prop-section">
+                    <div class="prop-title">Dimensões</div>
+                    <div class="prop-row">
+                        <span class="prop-label">W</span><input type="text" class="prop-input" id="css-width" oninput="setCss('width', this.value)">
+                        <span class="prop-label">H</span><input type="text" class="prop-input" id="css-height" oninput="setCss('height', this.value)">
+                    </div>
+                </div>
+                
+                <div class="prop-section">
+                    <div class="prop-title">Box Model</div>
+                    <div class="box-model">
+                        <div class="bm-margin">
+                            <span style="position:absolute;top:2px;left:2px;font-size:8px;">MARGIN</span>
+                            <input class="bm-input bm-t" placeholder="-" onchange="setCss('marginTop', this.value+'px')">
+                            <input class="bm-input bm-b" placeholder="-" onchange="setCss('marginBottom', this.value+'px')">
+                            <input class="bm-input bm-l" placeholder="-" onchange="setCss('marginLeft', this.value+'px')">
+                            <input class="bm-input bm-r" placeholder="-" onchange="setCss('marginRight', this.value+'px')">
+                            <div class="bm-padding">
+                                <span style="position:absolute;top:2px;left:2px;font-size:8px;">PADDING</span>
+                                <input class="bm-input pt-t" placeholder="-" onchange="setCss('paddingTop', this.value+'px')">
+                                <input class="bm-input pt-b" placeholder="-" onchange="setCss('paddingBottom', this.value+'px')">
+                                <input class="bm-input pt-l" placeholder="-" onchange="setCss('paddingLeft', this.value+'px')">
+                                <input class="bm-input pt-r" placeholder="-" onchange="setCss('paddingRight', this.value+'px')">
+                                <div class="bm-content"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONTEÚDO MANUAL: ESTILO -->
+            <div id="ptab-style" class="prop-content" style="display:none;">
+                <div class="prop-section">
+                    <div class="prop-title">Cores & Fundo</div>
+                    <div class="prop-row">
+                        <span class="prop-label">Fundo</span>
+                        <input type="color" class="prop-color" id="css-bg-color" oninput="setCss('background', this.value)">
+                    </div>
+                    <div class="prop-row">
+                        <span class="prop-label">Opacidade</span>
+                        <input type="range" class="prop-range" min="0" max="100" value="100" oninput="setCss('opacity', this.value/100)">
+                    </div>
+                </div>
+                <div class="prop-section">
+                    <div class="prop-title">Bordas & Radius</div>
+                    <div class="prop-row">
+                        <span class="prop-label">Radius</span>
+                        <input type="text" class="prop-input" id="css-radius" oninput="setCss('borderRadius', this.value)">
+                    </div>
+                    <div class="prop-row">
+                        <span class="prop-label">Borda</span>
+                        <input type="text" class="prop-input" placeholder="1px solid red" onchange="setCss('border', this.value)">
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONTEÚDO MANUAL: TEXTO -->
+            <div id="ptab-text" class="prop-content" style="display:none;">
+                <div class="prop-section">
+                    <div class="prop-title">Editar Texto</div>
+                    <textarea class="prop-input" style="height:80px;" id="content-text" oninput="updateTextContent(this.value)"></textarea>
+                </div>
+                <div class="prop-section">
+                    <div class="prop-title">Tipografia</div>
+                    <div class="prop-row">
+                        <span class="prop-label">Cor</span>
+                        <input type="color" class="prop-color" id="css-color" oninput="setCss('color', this.value)">
+                    </div>
+                    <div class="prop-row">
+                        <span class="prop-label">Tamanho</span>
+                        <input type="text" class="prop-input" id="css-font-size" oninput="setCss('fontSize', this.value)">
+                    </div>
+                    <div class="icon-group" style="margin-top:10px;">
+                        <button class="icon-btn" onclick="setCss('textAlign','left')"><i class="fas fa-align-left"></i></button>
+                        <button class="icon-btn" onclick="setCss('textAlign','center')"><i class="fas fa-align-center"></i></button>
+                        <button class="icon-btn" onclick="setCss('textAlign','right')"><i class="fas fa-align-right"></i></button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="prop-section">
+                <div class="prop-title">Custom CSS</div>
+                <textarea class="prop-input" style="height:60px;font-family:monospace;color:#a5b4fc;" onchange="applyCustomCSS(this.value)" placeholder="filter: blur(5px);"></textarea>
+            </div>
+        </div>
+    </div>
+</div>
+
+        <!-- ABA TEXTO -->
+        <div id="ptab-text" class="prop-content" style="display:none;">
+            <div class="prop-section">
+                <div class="prop-title">Conteúdo</div>
+                <textarea class="prop-input" style="height:60px;resize:vertical;" id="content-text" oninput="updateTextContent(this.value)"></textarea>
+            </div>
+
+            <div class="prop-section">
+                <div class="prop-title">Tipografia</div>
+                <div class="prop-row">
+                    <span class="prop-label">Fonte</span>
+                    <select class="prop-select" id="css-font-family" onchange="setCss('fontFamily', this.value)">
+                        <option value="Inter, sans-serif">Inter</option>
+                        <option value="Arial, sans-serif">Arial</option>
+                        <option value="Times New Roman, serif">Times</option>
+                        <option value="Courier New, monospace">Courier</option>
+                    </select>
+                </div>
+                <div class="adv-grid">
+                    <div>
+                        <label class="prop-label">Tamanho</label>
+                        <input type="text" class="prop-input" id="css-font-size" oninput="setCss('fontSize', this.value)">
+                    </div>
+                    <div>
+                        <label class="prop-label">Peso</label>
+                        <select class="prop-input" onchange="setCss('fontWeight', this.value)">
+                            <option value="400">Normal</option>
+                            <option value="700">Bold</option>
+                            <option value="300">Light</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="prop-row" style="margin-top:8px;">
+                    <span class="prop-label">Cor</span>
+                    <input type="color" class="prop-color" id="css-color" oninput="setCss('color', this.value)">
+                </div>
+                <div class="icon-group" style="margin-top:8px;">
+                    <button class="icon-btn" onclick="setCss('textAlign', 'left')"><i class="fas fa-align-left"></i></button>
+                    <button class="icon-btn" onclick="setCss('textAlign', 'center')"><i class="fas fa-align-center"></i></button>
+                    <button class="icon-btn" onclick="setCss('textAlign', 'right')"><i class="fas fa-align-right"></i></button>
+                    <button class="icon-btn" onclick="setCss('textAlign', 'justify')"><i class="fas fa-align-justify"></i></button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Custom CSS -->
+        <div class="prop-section">
+            <div class="prop-title">Custom CSS (Avançado)</div>
+            <textarea class="prop-input" style="height:80px;font-family:monospace;color:#a5b4fc;" id="custom-css" placeholder="border: 1px solid red;" onchange="applyCustomCSS(this.value)"></textarea>
+        </div>
+    </div>
+</div>
+
+        <div class="bottombar">
+            <span id="status-elements">0 elementos</span>
+            <span id="status-selected">Nenhum selecionado</span>
+            <span id="status-pos">X: 0 Y: 0</span>
+            <div style="flex:1;"></div>
+            <span id="status-ai" style="cursor:pointer;" onclick="openAPIModal()">IA: Offline</span>
+        </div>
+    </div>
+
+    <!-- AI PANEL -->
+    <div class="ai-panel" id="ai-panel">
+        <div class="ai-panel-header">
+            <span><i class="fas fa-robot"></i> IA Assistant</span>
+            <div>
+                <button onclick="openAPIModal()" style="background:rgba(255,255,255,0.2);border:none;color:white;padding:4px 8px;border-radius:4px;cursor:pointer;margin-right:4px;"><i class="fas fa-cog"></i></button>
+                <button onclick="toggleAI()" style="background:none;border:none;color:white;cursor:pointer;"><i class="fas fa-times"></i></button>
+            </div>
+        </div>
+        <div class="ai-panel-body" id="ai-body">
+            <div id="ai-messages">
+                <div class="ai-msg bot">🤖 Olá! Me diga o que criar:<br>• "Crie um botão azul"<br>• "Adicione um header"<br>• "Faça uma landing page"<br>• "Tema escuro"</div>
+            </div>
+        </div>
+        <div class="ai-panel-input">
+            <input type="text" id="ai-input" placeholder="O que criar..." onkeydown="if(event.key==='Enter')sendAI()">
+            <button onclick="sendAI()"><i class="fas fa-paper-plane"></i></button>
+        </div>
+    </div>
+
+    <!-- CODE PANEL -->
+    <div class="code-panel" id="code-panel">
+        <div class="code-panel-header">
+            <span><i class="fas fa-code"></i> Código HTML</span>
+            <div style="flex:1;"></div>
+            <button class="topbar-btn" onclick="copyCode()" style="font-size:11px;padding:4px 10px;"><i class="fas fa-copy"></i> Copiar</button>
+            <button class="topbar-btn" onclick="toggleCode()" style="font-size:11px;padding:4px 10px;"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="code-panel-body"><textarea id="code-editor" spellcheck="false"></textarea></div>
+    </div>
+
+    <!-- API CONFIG MODAL -->
+    <div id="api-modal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:9999;display:none;align-items:center;justify-content:center;">
+        <div style="background:#1e293b;border-radius:16px;padding:32px;max-width:500px;width:90%;color:#e2e8f0;border:1px solid #475569;">
+            <h2 style="margin:0 0 8px;font-size:20px;">🤖 Configurar IA</h2>
+            <p style="color:#94a3b8;font-size:13px;margin-bottom:20px;">Escolha o provedor de IA.</p>
+            <div style="margin-bottom:16px;">
+                <label style="font-size:12px;color:#94a3b8;display:block;margin-bottom:6px;">Provedor:</label>
+                <select id="ai-provider" style="width:100%;padding:10px;background:#0f172a;color:#e2e8f0;border:1px solid #475569;border-radius:8px;font-size:14px;" onchange="updateProviderInfo()">
+                    <option value="gemini">🟢 Google Gemini (Grátis)</option>
+                    <option value="groq">🟡 Groq / Llama 3 (Grátis)</option>
+                    <option value="openrouter">🔵 OpenRouter</option>
+                    <option value="anthropic">🟣 Claude (via OpenRouter)</option>
+                    <option value="openai">⚪ OpenAI / GPT (Pago)</option>
+                    <option value="offline">⚫ Offline (Sem API)</option>
+                </select>
+            </div>
+            <div id="provider-info" style="background:#0f172a;border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:#94a3b8;line-height:1.6;">
+                🟢 <strong>Google Gemini</strong> - 15 req/min GRÁTIS<br>
+                Key em: <a href="https://aistudio.google.com/apikey" target="_blank" style="color:#6366f1;">aistudio.google.com/apikey</a>
+            </div>
+            <div style="margin-bottom:16px;" id="api-key-section">
+                <label style="font-size:12px;color:#94a3b8;display:block;margin-bottom:6px;">API Key:</label>
+                <input type="password" id="api-key-input" placeholder="Cole sua API key aqui..." style="width:100%;padding:10px;background:#0f172a;color:#e2e8f0;border:1px solid #475569;border-radius:8px;font-size:14px;">
+            </div>
+            <div style="display:flex;gap:10px;">
+                <button onclick="saveAPIConfig()" style="flex:1;padding:12px;background:#6366f1;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;">Salvar</button>
+                <button onclick="closeAPIModal()" style="padding:12px 20px;background:#334155;color:#e2e8f0;border:none;border-radius:8px;cursor:pointer;font-size:14px;">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== JAVASCRIPT ÚNICO ===== -->
+    <script>
+	// ============================================
+// LÓGICA DE ESTILOS PRONTOS VS MANUAL
+// ============================================
+
+// Alternar entre "Prontos" e "Manual"
+function switchMainMode(mode, btn) {
+    document.querySelectorAll('.main-mode-tabs .mode-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    
+    document.getElementById('mode-presets').style.display = mode === 'presets' ? 'block' : 'none';
+    document.getElementById('mode-manual').style.display = mode === 'manual' ? 'block' : 'none';
+}
+
+// Aplicar estilos prontos (Presets)
+function applyPreset(presetName) {
+    if (!selected) return toast('Selecione um elemento!', 'error');
+    
+    const el = document.getElementById(selected);
+    const target = el.querySelector('h1,h2,h3,p,button,img,a,span,div') || el;
+    
+    // Definição dos estilos
+    const presets = {
+        'glass': {
+            background: 'rgba(255, 255, 255, 0.1)',
+            backdropFilter: 'blur(10px)',
+            webkitBackdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
+            borderRadius: '16px',
+            color: 'white'
+        },
+        'neumorphism': {
+            background: '#e0e5ec',
+            borderRadius: '20px',
+            boxShadow: '9px 9px 16px rgb(163,177,198,0.6), -9px -9px 16px rgba(255,255,255, 0.5)',
+            border: 'none',
+            color: '#4d4d4d'
+        },
+        'cyber': {
+            background: '#000000',
+            border: '2px solid #00fff9',
+            boxShadow: '0 0 10px #00fff9, inset 0 0 10px #00fff9',
+            color: '#00fff9',
+            borderRadius: '4px',
+            textShadow: '0 0 5px #00fff9'
+        },
+        'gradient': {
+            background: 'linear-gradient(135deg, #6366f1 0%, #ec4899 100%)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            boxShadow: '0 10px 20px -10px rgba(99, 102, 241, 0.5)'
+        },
+        'pop3d': {
+            background: '#ffffff',
+            border: '2px solid #000000',
+            boxShadow: '4px 4px 0px 0px #000000',
+            borderRadius: '8px',
+            color: '#000000',
+            transform: 'translateY(-2px)',
+            transition: 'all 0.1s'
+        },
+        'minimal': {
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: '6px',
+            boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+            color: '#1e293b'
+        },
+        'centerFlex': {
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            flexDirection: 'column'
+        },
+        'rowFlex': {
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexDirection: 'row',
+            gap: '20px'
+        }
+    };
+
+    const style = presets[presetName];
+    if (style) {
+        // Aplica cada propriedade
+        for (const [key, value] of Object.entries(style)) {
+            // Se for propriedade de layout, aplica no container, senão no target
+            if (['display', 'justifyContent', 'alignItems', 'flexDirection', 'gap'].includes(key)) {
+                el.style[key] = value;
+            } else {
+                target.style[key] = value;
+                // Especial para botões/cards
+                if(el.dataset.type === 'box' || el.dataset.type === 'card') el.style[key] = value;
+            }
+        }
+        
+        saveHist();
+        toast('Estilo aplicado: ' + presetName);
+        
+        // Se estiver no modo manual, atualiza os campos
+        updatePropFields(selected);
+    }
+}
+    // Estado
+    let elements = [];
+    let selected = null;
+    let idCounter = 0;
+    let isDragging = false;
+    let isResizing = false;
+    let dragOffset = {x:0,y:0};
+    let resizeDir = '';
+    let resizeStart = {};
+    let snapEnabled = false;
+    let gridVisible = true;
+    let historyStack = [];
+    let historyIdx = -1;
+
+    const canvas = document.getElementById('canvas');
+
+    // AI Config
+    let AI_CONFIG = {
+        provider: localStorage.getItem('ai-provider') || 'offline',
+        apiKey: localStorage.getItem('ai-key') || ''
+    };
+    document.getElementById('status-ai').textContent = 'IA: ' + AI_CONFIG.provider;
+
+    // Toast
+    function toast(msg, type='success') {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.className = 'toast ' + type + ' show';
+        setTimeout(() => t.className = 'toast', 2500);
+    }
+
+    // Templates
+    function getTemplate(type) {
+        const t = {
+            heading: {w:400,h:60,html:'<h1 style="margin:0;font-size:36px;color:#333;">Título Incrível</h1>'},
+            text: {w:350,h:80,html:'<p style="margin:0;font-size:16px;color:#555;line-height:1.6;">Lorem ipsum dolor sit amet consectetur.</p>'},
+            button: {w:180,h:50,html:'<button style="width:100%;height:100%;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;font-weight:600;">Clique Aqui</button>'},
+            image: {w:400,h:250,html:'<img src="https://via.placeholder.com/400x250/6366f1/ffffff?text=Imagem" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">'},
+            box: {w:200,h:200,html:'<div style="width:100%;height:100%;background:linear-gradient(135deg,#6366f1,#ec4899);border-radius:12px;"></div>'},
+            divider: {w:600,h:4,html:'<hr style="border:none;height:100%;background:linear-gradient(90deg,transparent,#6366f1,transparent);margin:0;">'},
+            card: {w:300,h:350,html:'<div style="width:100%;height:100%;background:white;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.1);overflow:hidden;"><div style="height:55%;background:linear-gradient(135deg,#6366f1,#8b5cf6);"></div><div style="padding:16px;"><h3 style="margin:0 0 8px;color:#333;">Card Title</h3><p style="margin:0;color:#666;font-size:14px;">Descrição aqui</p></div></div>'},
+            navbar: {w:800,h:60,html:'<nav style="width:100%;height:100%;background:#1e293b;border-radius:8px;display:flex;align-items:center;padding:0 20px;gap:24px;"><span style="color:white;font-weight:700;font-size:18px;">Logo</span><a style="color:#94a3b8;text-decoration:none;font-size:14px;">Home</a><a style="color:#94a3b8;text-decoration:none;font-size:14px;">Sobre</a><a style="color:#94a3b8;text-decoration:none;font-size:14px;">Contato</a></nav>'},
+            hero: {w:800,h:400,html:'<div style="width:100%;height:100%;background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px;"><h1 style="color:white;font-size:42px;margin:0 0 16px;">Transforme Ideias</h1><p style="color:#94a3b8;font-size:18px;margin:0 0 30px;">A solução para seu negócio</p><button style="background:#6366f1;color:white;border:none;padding:14px 36px;border-radius:50px;font-size:16px;cursor:pointer;">Começar</button></div>'},
+            form: {w:350,h:300,html:'<form style="width:100%;height:100%;background:#f8fafc;border-radius:12px;padding:24px;" onsubmit="event.preventDefault()"><h3 style="margin:0 0 16px;color:#333;">Contato</h3><input placeholder="Nome" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;margin-bottom:10px;"><input placeholder="Email" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;margin-bottom:10px;"><textarea placeholder="Mensagem" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;height:60px;resize:none;margin-bottom:10px;"></textarea><button style="width:100%;background:#6366f1;color:white;border:none;padding:10px;border-radius:6px;cursor:pointer;">Enviar</button></form>'},
+            footer: {w:800,h:80,html:'<footer style="width:100%;height:100%;background:#0f172a;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:14px;">© 2024 Meu Site</footer>'},
+            pricing: {w:280,h:380,html:'<div style="width:100%;height:100%;background:white;border:2px solid #6366f1;border-radius:16px;padding:24px;text-align:center;display:flex;flex-direction:column;"><h3 style="color:#6366f1;margin:0;">PRO</h3><div style="font-size:48px;font-weight:700;color:#1e293b;margin:16px 0;">R$49<span style="font-size:14px;color:#94a3b8;">/mês</span></div><div style="flex:1;text-align:left;color:#64748b;font-size:14px;line-height:2;">✅ Feature 1<br>✅ Feature 2<br>❌ Feature 3</div><button style="background:#6366f1;color:white;border:none;padding:12px;border-radius:50px;cursor:pointer;">Assinar</button></div>'},
+            testimonial: {w:350,h:200,html:'<div style="width:100%;height:100%;background:#f8fafc;border-radius:12px;padding:24px;text-align:center;"><div style="font-size:24px;margin-bottom:12px;">⭐⭐⭐⭐⭐</div><p style="color:#475569;font-style:italic;margin:0 0 16px;">"Produto incrível!"</p><strong style="color:#1e293b;">João Silva</strong></div>'},
+            icon: {w:80,h:80,html:'<div style="width:100%;height:100%;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:32px;color:white;">⚡</div>'}
+        };
+        return t[type] || t.box;
+    }
+
+    // Criar elemento
+    function createElement(type, x, y) {
+        const tmpl = getTemplate(type);
+        const id = 'el-' + (++idCounter);
+        if(snapEnabled){x=Math.round(x/20)*20;y=Math.round(y/20)*20;}
+        const el = document.createElement('div');
+        el.id = id; el.className = 'canvas-element'; el.dataset.type = type;
+        el.style.cssText = 'left:'+x+'px;top:'+y+'px;width:'+tmpl.w+'px;height:'+tmpl.h+'px;';
+        el.innerHTML = tmpl.html + buildToolbar(id) + buildHandles();
+        canvas.appendChild(el);
+        elements.push({id,type,x,y,w:tmpl.w,h:tmpl.h});
+        bindElement(el, id);
+        selectEl(id); saveHist(); updateStatus(); updateLayers();
+        toast(type+' adicionado!');
+    }
+
+    function createCustomElement(x,y,w,h,html) {
+        const id = 'el-' + (++idCounter);
+        const el = document.createElement('div');
+        el.id = id; el.className = 'canvas-element'; el.dataset.type = 'custom';
+        el.style.cssText = 'left:'+x+'px;top:'+y+'px;width:'+w+'px;height:'+h+'px;';
+        el.innerHTML = html + buildToolbar(id) + buildHandles();
+        canvas.appendChild(el);
+        elements.push({id,type:'custom',x,y,w,h});
+        bindElement(el, id);
+    }
+
+    function buildToolbar(id) {
+        return '<div class="element-toolbar">' +
+            '<button class="el-tool-btn" onclick="editInline(\''+id+'\')" title="Editar"><i class="fas fa-edit"></i></button>' +
+            '<button class="el-tool-btn" onclick="duplicateEl(\''+id+'\')" title="Duplicar"><i class="fas fa-copy"></i></button>' +
+            '<button class="el-tool-btn" onclick="bringFront(\''+id+'\')" title="Frente"><i class="fas fa-arrow-up"></i></button>' +
+            '<button class="el-tool-btn" onclick="sendBack(\''+id+'\')" title="Trás"><i class="fas fa-arrow-down"></i></button>' +
+            '<button class="el-tool-btn" onclick="deleteEl(\''+id+'\')" title="Deletar"><i class="fas fa-trash"></i></button>' +
+        '</div>';
+    }
+
+    function buildHandles() {
+        return '<div class="resize-handle nw" data-dir="nw"></div><div class="resize-handle ne" data-dir="ne"></div>' +
+            '<div class="resize-handle sw" data-dir="sw"></div><div class="resize-handle se" data-dir="se"></div>' +
+            '<div class="resize-handle n" data-dir="n"></div><div class="resize-handle s" data-dir="s"></div>' +
+            '<div class="resize-handle e" data-dir="e"></div><div class="resize-handle w" data-dir="w"></div>';
+    }
+
+    function bindElement(el, id) {
+        el.addEventListener('mousedown', function(e) {
+            if(e.target.classList.contains('resize-handle')) startResize(e,id,e.target.dataset.dir);
+            else if(!e.target.closest('.element-toolbar')) startDrag(e,id);
+        });
+        el.addEventListener('click', function(e) { e.stopPropagation(); selectEl(id); });
+    }
+
+    // Drag
+    function startDrag(e, id) {
+        e.preventDefault(); selectEl(id); isDragging = true;
+        const el = document.getElementById(id);
+        const rect = canvas.getBoundingClientRect();
+        dragOffset.x = e.clientX - el.offsetLeft - rect.left;
+        dragOffset.y = e.clientY - el.offsetTop - rect.top;
+        function onMove(e) {
+            if(!isDragging) return;
+            const rect = canvas.getBoundingClientRect();
+            let nx = e.clientX - rect.left - dragOffset.x;
+            let ny = e.clientY - rect.top - dragOffset.y;
+            if(snapEnabled){nx=Math.round(nx/20)*20;ny=Math.round(ny/20)*20;}
+            nx=Math.max(0,Math.min(nx,canvas.offsetWidth-el.offsetWidth));
+            ny=Math.max(0,ny);
+            el.style.left=nx+'px'; el.style.top=ny+'px';
+            updatePropFields(id);
+            document.getElementById('status-pos').textContent='X:'+Math.round(nx)+' Y:'+Math.round(ny);
+        }
+        function onUp(){isDragging=false;document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);saveHist();}
+        document.addEventListener('mousemove',onMove);
+        document.addEventListener('mouseup',onUp);
+    }
+
+    // Resize
+    function startResize(e,id,dir) {
+        e.preventDefault(); e.stopPropagation(); isResizing=true; resizeDir=dir;
+        const el=document.getElementById(id);
+        resizeStart={x:e.clientX,y:e.clientY,w:el.offsetWidth,h:el.offsetHeight,l:el.offsetLeft,t:el.offsetTop};
+        function onMove(e){
+            if(!isResizing)return;
+            const dx=e.clientX-resizeStart.x, dy=e.clientY-resizeStart.y;
+            if(dir.includes('e'))el.style.width=Math.max(40,resizeStart.w+dx)+'px';
+            if(dir.includes('s'))el.style.height=Math.max(20,resizeStart.h+dy)+'px';
+            if(dir.includes('w')){el.style.width=Math.max(40,resizeStart.w-dx)+'px';el.style.left=(resizeStart.l+dx)+'px';}
+            if(dir.includes('n')){el.style.height=Math.max(20,resizeStart.h-dy)+'px';el.style.top=(resizeStart.t+dy)+'px';}
+            updatePropFields(id);
+        }
+        function onUp(){isResizing=false;document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);saveHist();}
+        document.addEventListener('mousemove',onMove);
+        document.addEventListener('mouseup',onUp);
+    }
+
+    // Seleção
+    function selectEl(id) {
+        document.querySelectorAll('.canvas-element').forEach(e=>e.classList.remove('selected'));
+        const el=document.getElementById(id); if(!el)return;
+        el.classList.add('selected'); selected=id;
+        document.getElementById('no-selection').style.display='none';
+        document.getElementById('props-panel').style.display='block';
+        updatePropFields(id);
+        document.getElementById('status-selected').textContent=el.dataset.type;
+        updateLayers();
+    }
+
+    function deselectAll() {
+        document.querySelectorAll('.canvas-element').forEach(e=>e.classList.remove('selected'));
+        selected=null;
+        document.getElementById('no-selection').style.display='block';
+        document.getElementById('props-panel').style.display='none';
+        document.getElementById('status-selected').textContent='Nenhum selecionado';
+        updateLayers();
+    }
+
+    canvas.addEventListener('click',function(e){if(e.target===canvas)deselectAll();});
+
+    // Propriedades
+    function updatePropFields(id) {
+        const el=document.getElementById(id); if(!el)return;
+        document.getElementById('prop-x').value=Math.round(el.offsetLeft);
+        document.getElementById('prop-y').value=Math.round(el.offsetTop);
+        document.getElementById('prop-w').value=Math.round(el.offsetWidth);
+        document.getElementById('prop-h').value=Math.round(el.offsetHeight);
+        const inner=el.querySelector('h1,h2,h3,p,button,span,a')||el;
+        const cs=window.getComputedStyle(inner);
+        document.getElementById('prop-text').value=inner.innerText?.substring(0,100)||'';
+        document.getElementById('prop-fontsize').value=parseInt(cs.fontSize)||16;
+        document.getElementById('prop-bold').checked=parseInt(cs.fontWeight)>=700;
+    }
+
+    function setProp(prop) {
+        if(!selected)return;
+        const el=document.getElementById(selected);
+        const inner=el.querySelector('h1,h2,h3,p,button,span,a')||el;
+        switch(prop){
+            case 'x':el.style.left=document.getElementById('prop-x').value+'px';break;
+            case 'y':el.style.top=document.getElementById('prop-y').value+'px';break;
+            case 'w':el.style.width=document.getElementById('prop-w').value+'px';break;
+            case 'h':el.style.height=document.getElementById('prop-h').value+'px';break;
+            case 'rotate':const r=document.getElementById('prop-rotate').value;el.style.transform='rotate('+r+'deg)';document.getElementById('rotate-val').textContent=r+'°';break;
+            case 'text':inner.innerText=document.getElementById('prop-text').value;break;
+            case 'font':inner.style.fontFamily=document.getElementById('prop-font').value;break;
+            case 'fontsize':inner.style.fontSize=document.getElementById('prop-fontsize').value+'px';break;
+            case 'bold':inner.style.fontWeight=document.getElementById('prop-bold').checked?'700':'400';break;
+            case 'color':inner.style.color=document.getElementById('prop-color').value;break;
+            case 'bgcolor':(el.querySelector('div,nav,footer,form,section,header')||el).style.background=document.getElementById('prop-bgcolor').value;break;
+            case 'radius':const rv=document.getElementById('prop-radius').value;el.style.borderRadius=rv+'px';document.getElementById('radius-val').textContent=rv;break;
+            case 'opacity':const ov=document.getElementById('prop-opacity').value;el.style.opacity=ov/100;document.getElementById('opacity-val').textContent=ov+'%';break;
+            case 'shadow':el.style.boxShadow=document.getElementById('prop-shadow').value;break;
+            case 'border':el.style.border=document.getElementById('prop-border').value;break;
+        }
+        saveHist();
+    }
+
+    function setPropAlign(a){if(!selected)return;(document.getElementById(selected).querySelector('div,h1,h2,h3,p,button')||document.getElementById(selected)).style.textAlign=a;saveHist();}
+    function quickBg(c){if(!selected)return;document.getElementById('prop-bgcolor').value=c;setProp('bgcolor');}
+
+    // Ações
+    function editInline(id) {
+        const el=document.getElementById(id);
+        const target=el.querySelector('h1,h2,h3,p,button,span,a');if(!target)return;
+        const old=target.innerText;
+        const input=document.createElement('input');
+        input.value=old;
+        input.style.cssText='width:100%;padding:6px;border:2px solid #6366f1;border-radius:4px;font-size:inherit;position:absolute;top:0;left:0;z-index:999;';
+        target.style.visibility='hidden';el.appendChild(input);input.focus();input.select();
+        function done(){target.innerText=input.value||old;target.style.visibility='';input.remove();saveHist();}
+        input.addEventListener('blur',done);
+        input.addEventListener('keydown',function(e){if(e.key==='Enter')done();if(e.key==='Escape'){target.style.visibility='';input.remove();}});
+    }
+
+    function duplicateEl(id){const el=document.getElementById(id);createElement(el.dataset.type,el.offsetLeft+20,el.offsetTop+20);}
+
+    function deleteEl(id) {
+        const el=document.getElementById(id);
+        el.style.transition='all 0.2s';el.style.opacity='0';el.style.transform='scale(0.8)';
+        setTimeout(()=>{el.remove();elements=elements.filter(e=>e.id!==id);if(selected===id)deselectAll();saveHist();updateStatus();updateLayers();toast('Removido');},200);
+    }
+
+    function bringFront(id){document.getElementById(id).style.zIndex=++idCounter;}
+    function sendBack(id){document.getElementById(id).style.zIndex=0;}
+
+    // Drag from sidebar
+    document.querySelectorAll('.component-item').forEach(item=>{
+        item.addEventListener('dragstart',function(e){e.dataTransfer.setData('type',this.dataset.type);});
+    });
+    canvas.addEventListener('dragover',e=>e.preventDefault());
+    canvas.addEventListener('drop',function(e){
+        e.preventDefault();const type=e.dataTransfer.getData('type');if(!type)return;
+        const rect=canvas.getBoundingClientRect();const tmpl=getTemplate(type);
+        createElement(type,e.clientX-rect.left-tmpl.w/2,e.clientY-rect.top-tmpl.h/2);
+    });
+
+    // Layers
+    function updateLayers(){
+        const list=document.getElementById('layers-list');const els=canvas.querySelectorAll('.canvas-element');
+        list.innerHTML='';
+        [...els].reverse().forEach(el=>{
+            list.innerHTML+='<div class="layer-item '+(el.id===selected?'active':'')+'" onclick="selectEl(\''+el.id+'\')"><span class="layer-icon"><i class="fas fa-cube"></i></span><span class="layer-name">'+(el.dataset.type||'el')+'</span><div><button class="layer-btn" onclick="event.stopPropagation();deleteEl(\''+el.id+'\')"><i class="fas fa-trash"></i></button></div></div>';
+        });
+    }
+
+    // Tabs
+    function showLeftTab(tab,btn){
+        document.querySelectorAll('.panel-tab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
+        document.getElementById('tab-components').style.display=tab==='components'?'':'none';
+        document.getElementById('tab-styles').style.display=tab==='styles'?'':'none';
+        document.getElementById('tab-layers').style.display=tab==='layers'?'':'none';
+        if(tab==='layers')updateLayers();
+    }
+
+    // Grid & Snap
+    function toggleGrid(){gridVisible=!gridVisible;canvas.classList.toggle('grid-visible',gridVisible);document.getElementById('grid-btn').classList.toggle('active',gridVisible);}
+    function toggleSnap(){snapEnabled=!snapEnabled;document.getElementById('snap-btn').classList.toggle('active',snapEnabled);toast(snapEnabled?'Snap ON':'Snap OFF');}
+
+    // Temas
+    function applyTheme(theme){
+        const themes={modern:{bg:'linear-gradient(135deg,#667eea,#764ba2)'},dark:{bg:'#0f172a'},nature:{bg:'linear-gradient(135deg,#065f46,#10b981)'},sunset:{bg:'linear-gradient(135deg,#f97316,#ec4899)'},ocean:{bg:'linear-gradient(135deg,#0ea5e9,#06b6d4)'},minimal:{bg:'#ffffff'}};
+        canvas.style.background=themes[theme].bg;toast('Tema '+theme);saveHist();
+    }
+    function setCanvasWidth(w){canvas.style.width=w+'px';}
+
+    // Histórico
+    function saveHist(){historyStack=historyStack.slice(0,historyIdx+1);historyStack.push(canvas.innerHTML);historyIdx++;if(historyStack.length>40){historyStack.shift();historyIdx--;}}
+    function undo(){if(historyIdx>0){historyIdx--;canvas.innerHTML=historyStack[historyIdx];rebindAll();toast('Desfeito');}}
+    function redo(){if(historyIdx<historyStack.length-1){historyIdx++;canvas.innerHTML=historyStack[historyIdx];rebindAll();toast('Refeito');}}
+
+    function rebindAll(){
+        deselectAll();
+        canvas.querySelectorAll('.canvas-element').forEach(el=>{bindElement(el,el.id);});
+        updateStatus();updateLayers();
+    }
+
+    // Save/Load/Export/Preview
+    function saveSite(){localStorage.setItem('vsw-canvas',canvas.innerHTML);localStorage.setItem('vsw-bg',canvas.style.background||'');toast('Salvo!');}
+    function loadSite(){const d=localStorage.getItem('vsw-canvas');if(d){canvas.innerHTML=d;canvas.style.background=localStorage.getItem('vsw-bg')||'white';rebindAll();saveHist();toast('Carregado!');}else toast('Nada salvo','error');}
+
+    function generateExportHTML(){
+        let html='';
+        canvas.querySelectorAll('.canvas-element').forEach(el=>{
+            const clone=el.cloneNode(true);
+            clone.querySelectorAll('.element-toolbar,.resize-handle').forEach(c=>c.remove());
+            clone.classList.remove('selected','canvas-element');clone.style.position='absolute';
+            html+=clone.outerHTML+'\n';
+        });
+        return '<!DOCTYPE html>\n<html lang="pt-BR">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width,initial-scale=1.0">\n<title>Meu Site</title>\n<style>\n*{margin:0;padding:0;box-sizing:border-box;}\nbody{font-family:Inter,sans-serif;}\n.page{position:relative;width:'+(canvas.style.width||'1200px')+';min-height:800px;margin:0 auto;background:'+(canvas.style.background||'white')+';}\n</style>\n</head>\n<body>\n<div class="page">\n'+html+'</div>\n</body>\n</html>';
+    }
+
+    function exportSite(){const html=generateExportHTML();const blob=new Blob([html],{type:'text/html'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='meu-site.html';a.click();toast('Exportado!');}
+    function previewSite(){const html=generateExportHTML();const win=window.open('','_blank');win.document.write(html);win.document.close();}
+
+    // Code Panel
+    function toggleCode(){const p=document.getElementById('code-panel');const o=p.classList.toggle('open');document.getElementById('code-btn').classList.toggle('active',o);if(o)document.getElementById('code-editor').value=generateExportHTML();}
+    function copyCode(){const c=document.getElementById('code-editor');c.select();document.execCommand('copy');toast('Copiado!');}
+
+    // AI Toggle
+    function toggleAI(){const p=document.getElementById('ai-panel');const o=p.classList.toggle('open');document.getElementById('ai-btn').classList.toggle('active',o);if(o)document.getElementById('ai-input').focus();}
+
+    // API Modal
+    function openAPIModal(){document.getElementById('api-modal').style.display='flex';document.getElementById('ai-provider').value=AI_CONFIG.provider;document.getElementById('api-key-input').value=AI_CONFIG.apiKey;updateProviderInfo();}
+    function closeAPIModal(){document.getElementById('api-modal').style.display='none';}
+    function updateProviderInfo(){
+        const p=document.getElementById('ai-provider').value;
+        const infos={gemini:'🟢 <strong>Google Gemini</strong> - GRÁTIS<br>Key: <a href="https://aistudio.google.com/apikey" target="_blank" style="color:#6366f1;">aistudio.google.com/apikey</a>',groq:'🟡 <strong>Groq</strong> - GRÁTIS<br>Key: <a href="https://console.groq.com/keys" target="_blank" style="color:#6366f1;">console.groq.com/keys</a>',openrouter:'🔵 <strong>OpenRouter</strong><br>Key: <a href="https://openrouter.ai/keys" target="_blank" style="color:#6366f1;">openrouter.ai/keys</a>',anthropic:'🟣 <strong>Claude via OpenRouter</strong><br>Key do OpenRouter',openai:'⚪ <strong>OpenAI</strong> - Pago<br>Key: <a href="https://platform.openai.com/api-keys" target="_blank" style="color:#6366f1;">platform.openai.com</a>',offline:'⚫ <strong>Offline</strong> - Sem API necessária'};
+        document.getElementById('provider-info').innerHTML=infos[p]||'';
+        document.getElementById('api-key-section').style.display=p==='offline'?'none':'block';
+    }
+    function saveAPIConfig(){
+        AI_CONFIG.provider=document.getElementById('ai-provider').value;
+        AI_CONFIG.apiKey=document.getElementById('api-key-input').value.trim();
+        localStorage.setItem('ai-provider',AI_CONFIG.provider);
+        localStorage.setItem('ai-key',AI_CONFIG.apiKey);
+        document.getElementById('status-ai').textContent='IA: '+AI_CONFIG.provider;
+        closeAPIModal();toast('IA configurada!');
+    }
+    // ============================================
+    // CHAMADA REAL À IA (CORRIGIDA)
+    // ============================================
+    async function callAI(prompt) {
+        // System Prompt Otimizado para economizar tokens
+        const sys = `Você é um Web Designer Expert. Responda APENAS com um JSON válido.
+Formato: {"message":"[Explicação curta]","elements":[{"type":"custom","x":50,"y":50,"w":400,"h":200,"html":"<div style='...'>...</div>"}],"canvasBg":null,"clear":false}
+Regras:
+1. "type" sempre "custom".
+2. HTML deve ter CSS INLINE (style="..."). Use sombras, bordas arredondadas (12px+), gradientes modernos.
+3. Se o usuário pedir um site completo, use "clear": true.
+4. "canvasBg" muda a cor de fundo (ex: "#0f172a").
+5. NÃO use Markdown (\`\`\`). Retorne JSON puro.`;
+
+        // ====== GEMINI (CORREÇÃO: Usando 1.5 Flash) ======
+        if (AI_CONFIG.provider === 'gemini') {
+            // MUDANÇA AQUI: De 'gemini-2.0-flash' para 'gemini-1.5-flash'
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${AI_CONFIG.apiKey}`;
+            
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{ text: sys + '\n\nUsuário pediu: ' + prompt }]
+                    }],
+                    generationConfig: {
+                        temperature: 0.7,
+                        maxOutputTokens: 8192, // Aumentado
+                        responseMimeType: "application/json"
+                    }
+                })
+            });
+
+            const data = await res.json();
+            
+            // Tratamento de erro de Cota
+            if (data.error) {
+                if (data.error.message.includes('429') || data.error.message.includes('Quota')) {
+                    throw new Error("Limite do Gemini atingido! Espere 1 min ou use a opção 'Groq' (é grátis e ilimitada).");
+                }
+                throw new Error(data.error.message);
+            }
+
+            const text = data.candidates[0].content.parts[0].text;
+            return JSON.parse(text);
+        } 
+        
+        // ====== GROQ (Mantenha igual, é excelente) ======
+        else if (AI_CONFIG.provider === 'groq') {
+            const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + AI_CONFIG.apiKey
+                },
+                body: JSON.stringify({
+                    model: 'llama-3.3-70b-versatile',
+                    messages: [
+                        { role: 'system', content: sys },
+                        { role: 'user', content: prompt }
+                    ],
+                    temperature: 0.7,
+                    max_tokens: 4096,
+                    response_format: { type: "json_object" }
+                })
+            });
+
+            const data = await res.json();
+            if (data.error) throw new Error(data.error.message);
+            return JSON.parse(data.choices[0].message.content);
+        }
+        
+        // ... (mantenha os outros provedores se quiser, ou use Offline)
+        else {
+            return offlineAI(prompt);
+        }
+    }
+
+    function offlineAI(p){
+        const m=p.toLowerCase();let r={message:'',elements:[],canvasBg:null,clear:false};
+        if(m.includes('botão')||m.includes('botao')||m.includes('button')){r.message='✅ Botão criado!';r.elements=[{type:'custom',x:100,y:100,w:200,h:55,html:'<button style="width:100%;height:100%;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;">Clique Aqui</button>'}];}
+        else if(m.includes('header')||m.includes('cabeçalho')){r.message='✅ Header criado!';r.elements=[{type:'custom',x:0,y:0,w:1200,h:80,html:'<header style="width:100%;height:100%;background:#0f172a;display:flex;align-items:center;padding:0 30px;gap:30px;"><span style="color:white;font-weight:700;font-size:22px;">🚀 MeuSite</span><nav style="display:flex;gap:24px;margin-left:auto;"><a style="color:#94a3b8;text-decoration:none;">Home</a><a style="color:#94a3b8;text-decoration:none;">Sobre</a><a style="color:#94a3b8;text-decoration:none;">Contato</a></nav></header>'}];}
+        else if(m.includes('hero')||m.includes('banner')){r.message='✅ Hero criado!';r.elements=[{type:'custom',x:0,y:90,w:1200,h:450,html:'<div style="width:100%;height:100%;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px;"><h1 style="color:white;font-size:52px;margin:0 0 20px;font-weight:800;">Crie Algo Incrível</h1><p style="color:rgba(255,255,255,0.85);font-size:20px;margin:0 0 36px;">Transforme suas ideias em realidade</p><button style="background:white;color:#6366f1;padding:16px 48px;border:none;border-radius:50px;font-size:18px;font-weight:700;cursor:pointer;">Começar →</button></div>'}];}
+        else if(m.includes('card')){r.message='✅ Card criado!';r.elements=[{type:'custom',x:100,y:100,w:320,h:380,html:'<div style="width:100%;height:100%;background:white;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,0.12);overflow:hidden;"><div style="height:50%;background:linear-gradient(135deg,#6366f1,#a855f7);"></div><div style="padding:24px;"><h3 style="margin:0 0 8px;color:#1e293b;">Card Title</h3><p style="margin:0 0 16px;color:#64748b;font-size:14px;">Descrição aqui</p><button style="background:#6366f1;color:white;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;">Ver Mais</button></div></div>'}];}
+        else if(m.includes('form')||m.includes('formulário')){r.message='✅ Formulário criado!';r.elements=[{type:'custom',x:100,y:100,w:400,h:350,html:'<form style="width:100%;height:100%;background:white;border-radius:16px;padding:32px;box-shadow:0 8px 30px rgba(0,0,0,0.1);" onsubmit="event.preventDefault()"><h3 style="margin:0 0 24px;color:#1e293b;">📧 Contato</h3><input placeholder="Nome" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:8px;margin-bottom:12px;"><input placeholder="Email" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:8px;margin-bottom:12px;"><textarea placeholder="Mensagem" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:8px;margin-bottom:16px;height:70px;resize:none;"></textarea><button style="width:100%;padding:14px;background:#6366f1;color:white;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;">Enviar</button></form>'}];}
+        else if(m.includes('landing')||m.includes('site completo')||m.includes('página')){r.message='✅ Landing page!';r.clear=true;r.elements=[{type:'custom',x:0,y:0,w:1200,h:70,html:'<nav style="width:100%;height:100%;background:#0f172a;display:flex;align-items:center;padding:0 30px;"><span style="color:white;font-weight:700;font-size:20px;">🚀 Brand</span><div style="margin-left:auto;display:flex;gap:24px;"><a style="color:#94a3b8;text-decoration:none;">Home</a><a style="color:#94a3b8;text-decoration:none;">Sobre</a><a style="color:#94a3b8;text-decoration:none;">Contato</a></div></nav>'},{type:'custom',x:0,y:70,w:1200,h:400,html:'<div style="width:100%;height:100%;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;"><h1 style="color:white;font-size:48px;margin:0 0 16px;font-weight:800;">Transforme Ideias</h1><p style="color:rgba(255,255,255,0.85);font-size:20px;margin:0 0 32px;">A plataforma perfeita</p><button style="background:white;color:#6366f1;padding:16px 40px;border:none;border-radius:50px;font-size:18px;font-weight:700;cursor:pointer;">Começar</button></div>'},{type:'custom',x:0,y:500,w:1200,h:80,html:'<footer style="width:100%;height:100%;background:#0f172a;display:flex;align-items:center;justify-content:center;color:#64748b;">© 2024 Brand</footer>'}];}
+        else if(m.includes('limpar')||m.includes('apagar')){r.message='✅ Limpo!';r.clear=true;}
+        else if(m.includes('escuro')||m.includes('dark')){r.message='✅ Tema escuro!';r.canvasBg='#0f172a';}
+        else if(m.includes('claro')||m.includes('branco')){r.message='✅ Tema claro!';r.canvasBg='#ffffff';}
+        else{r.message='Tente: "botão", "header", "hero", "card", "formulário", "landing page", "tema escuro"';}
+        return r;
+    }
+
+    function processAIResponse(data){
+        if(data.clear){canvas.innerHTML='';elements=[];}
+        if(data.canvasBg)canvas.style.background=data.canvasBg;
+        if(data.elements&&data.elements.length>0){
+            data.elements.forEach(item=>{
+                if(item.type==='custom'&&item.html)createCustomElement(item.x||50,item.y||50,item.w||300,item.h||200,item.html);
+                else if(item.type)createElement(item.type,item.x||50,item.y||50);
+            });
+        }
+        saveHist();updateStatus();updateLayers();
+    }
+
+    async function sendAI(){
+        const input=document.getElementById('ai-input');
+        const messages=document.getElementById('ai-messages');
+        const body=document.getElementById('ai-body');
+        const msg=input.value.trim();if(!msg)return;
+        messages.innerHTML+='<div class="ai-msg user">'+msg+'</div>';input.value='';
+        const loadId='load-'+Date.now();
+        messages.innerHTML+='<div class="ai-msg bot" id="'+loadId+'"><i class="fas fa-spinner fa-spin"></i> Pensando...</div>';
+        body.scrollTop=body.scrollHeight;
+        try{
+            if(AI_CONFIG.provider!=='offline'&&!AI_CONFIG.apiKey){document.getElementById(loadId).innerHTML='⚠️ Configure a API! <button onclick="openAPIModal()" style="background:#6366f1;color:white;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;">Config</button>';return;}
+            const result=await callAI(msg);
+            processAIResponse(result);
+            document.getElementById(loadId).innerHTML='🤖 '+(result.message||'Feito!');
+        }catch(error){
+            console.error('AI Error:',error);
+            document.getElementById(loadId).innerHTML='❌ '+error.message+'<br><button onclick="openAPIModal()" style="background:#6366f1;color:white;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;margin-top:8px;">Verificar</button>';
+        }
+        body.scrollTop=body.scrollHeight;
+    }
+
+    // Status
+    function updateStatus(){document.getElementById('status-elements').textContent=canvas.querySelectorAll('.canvas-element').length+' elementos';}
+
+    // Atalhos
+    document.addEventListener('keydown',function(e){
+        if(e.ctrlKey&&e.key==='z'){e.preventDefault();undo();}
+        if(e.ctrlKey&&e.key==='y'){e.preventDefault();redo();}
+        if(e.ctrlKey&&e.key==='s'){e.preventDefault();saveSite();}
+        if(e.key==='Delete'&&selected)deleteEl(selected);
+        if(e.key==='Escape')deselectAll();
+        if(selected){
+            const el=document.getElementById(selected);if(!el)return;
+            const step=e.shiftKey?10:1;
+            if(e.key==='ArrowLeft'){e.preventDefault();el.style.left=(el.offsetLeft-step)+'px';updatePropFields(selected);}
+            if(e.key==='ArrowRight'){e.preventDefault();el.style.left=(el.offsetLeft+step)+'px';updatePropFields(selected);}
+            if(e.key==='ArrowUp'){e.preventDefault();el.style.top=(el.offsetTop-step)+'px';updatePropFields(selected);}
+            if(e.key==='ArrowDown'){e.preventDefault();el.style.top=(el.offsetTop+step)+'px';updatePropFields(selected);}
+        }
+    });
+
+    // Init
+    saveHist();
+    updateStatus();
+    </script>
+</body>
+</html>
